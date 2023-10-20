@@ -8,6 +8,7 @@ import traceback
 from typing import Callable, Dict, List, Optional
 
 from pebble import ProcessPool, sighandler
+from pebble.common import RemoteTraceback
 
 from .client import Client
 from .util import constants as C
@@ -144,15 +145,21 @@ class Consumer:
                 sentry_sdk.capture_exception(err)
 
             err_type, err_value, err_traceback = sys.exc_info()
-            self.logger.info(
+            self.logger.exception(
                 f'Task (job {future.job_id}) raised {err_type}: {err_value}')
-            self.logger.debug(f'Task (job {future.job_id}) backtrace: ',
-                              traceback.format_tb(err_traceback))
+
+            if err.__cause__ and type(err.__cause__) == RemoteTraceback:
+                # Pebble will provide us the real exception in err.__cause__
+                backtrace = str(err.__cause__)
+            else:
+                # Otherwise just fallback to the exception we have here.
+                backtrace = traceback.format_tb(err_traceback)
+
             self.client._fail(jid=future.job_id,
                               errtype=err_type.__name__,
                               message=str(err_value),
-                              backtrace=traceback.format_tb(
-                                  err_traceback, limit=future.backtrace))
+                              backtrace=backtrace,
+                              limit=future.backtrace)
         finally:
             with self.lock_pending_tasks_count:
                 self.pending_tasks_count -= 1
