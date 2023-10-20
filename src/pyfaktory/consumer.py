@@ -150,7 +150,7 @@ class Consumer:
 
             if err.__cause__ and type(err.__cause__) == RemoteTraceback:
                 # Pebble will provide us the real exception in err.__cause__
-                backtrace = str(err.__cause__)
+                backtrace = str(err.__cause__).split('\n')
             else:
                 # Otherwise just fallback to the exception we have here.
                 backtrace = traceback.format_tb(err_traceback)
@@ -158,8 +158,7 @@ class Consumer:
             self.client._fail(jid=future.job_id,
                               errtype=err_type.__name__,
                               message=str(err_value),
-                              backtrace=backtrace,
-                              limit=future.backtrace)
+                              backtrace=backtrace)
         finally:
             with self.lock_pending_tasks_count:
                 self.pending_tasks_count -= 1
